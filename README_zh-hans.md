@@ -81,6 +81,12 @@ Architectury              必需    可选    中      前置库，只被服务�
 
     go run ./tools/fetchcorpus -out testdata/corpus -sets fabric-1.20.1,fabric-1.21.1,forge-1.12.2,forge-1.20.1,neoforge-1.21.1
 
+发布新版本：在 `master` 上打 tag 并推送，GitHub Actions 会测试、编译全部平台并发布 Release（带后缀的 tag，如 `v2.0.0-rc.1`，会发布为预发布版本）：
+
+    git tag v2.0.0 && git push origin v2.0.0
+
+手动运行 *Release* workflow 会编译同样的文件作为可下载的 artifact，但不会发布。
+
 判断错了？请附上 `mcmodfilter -format json <那个 jar>` 的输出提 issue。
 
 ## 计划

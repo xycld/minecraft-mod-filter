@@ -1,35 +1,71 @@
 name: Release
 
+# Pushing a tag like v2.0.0 builds every platform and publishes a GitHub
+# release; tags with a suffix (v2.0.0-rc.1) become pre-releases.
+# Running the workflow by hand builds the same files as a downloadable
+# artifact without publishing anything.
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  build:
+  release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the master check below needs history
+
+      - name: Check the tag is on master
+        if: github.ref_type == 'tag'
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/master; then
+            echo "::error::$GITHUB_REF_NAME is not on master; refusing to publish"
+            exit 1
+          fi
+
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+
+      - run: go vet ./...
       - run: go test ./...
+
       - name: Build binaries
         env:
           CGO_ENABLED: '0'
+          VERSION: ${{ github.ref_type == 'tag' && github.ref_name || format('dev-{0}', github.sha) }}
         run: |
           mkdir dist
           for target in linux/amd64 linux/arm64 windows/amd64 windows/arm64 darwin/amd64 darwin/arm64; do
             os=${target%/*}; arch=${target#*/}
             ext=; [ "$os" = windows ] && ext=.exe
             GOOS=$os GOARCH=$arch go build -trimpath \
-              -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" \
-              -o "dist/mcmodfilter-${GITHUB_REF_NAME}-${os}-${arch}${ext}" ./cmd/mcmodfilter
+              -ldflags "-s -w -X main.version=$VERSION" \
+              -o "dist/mcmodfilter-$VERSION-$os-$arch$ext" ./cmd/mcmodfilter
           done
-          cd dist && sha256sum * > SHA256SUMS
+          (cd dist && sha256sum * > SHA256SUMS)
+          ls -l dist
+
+      - name: Smoke test the Linux binary
+        run: ./dist/mcmodfilter-*-linux-amd64 -version
+
+      - name: Upload build (manual runs)
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcmodfilter-dev
+          path: dist/
+
       - name: Publish release
+        if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --generate-notes
+        run: |
+          prerelease=
+          case "$GITHUB_REF_NAME" in *-*) prerelease=--prerelease ;; esac
+          gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes $prerelease

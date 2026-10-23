@@ -83,6 +83,12 @@ The accuracy figures come from `internal/eval`, which runs against jars in `test
 
     go run ./tools/fetchcorpus -out testdata/corpus -sets fabric-1.20.1,fabric-1.21.1,forge-1.12.2,forge-1.20.1,neoforge-1.21.1
 
+To release, tag a commit on `master` and push the tag; GitHub Actions tests it, builds every platform and publishes the release (a tag with a suffix such as `v2.0.0-rc.1` becomes a pre-release):
+
+    git tag v2.0.0 && git push origin v2.0.0
+
+Running the *Release* workflow by hand builds the same files as a downloadable artifact without publishing.
+
 Wrong verdict? Please open an issue with the output of `mcmodfilter -format json <the jar>`.
 
 ## Roadmap
