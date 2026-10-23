@@ -94,6 +94,7 @@ func TestLoadCurseForge(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer pk.Close() // Windows cannot delete the temp dir while the archive is open
 	if pk.Loader != "forge" || pk.GameVersion != "1.20.1" || len(pk.Items) != 2 {
 		t.Errorf("pack = %+v", pk)
 	}
